@@ -38,6 +38,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public void onOpen(SQLiteDatabase db) {
         super.onOpen(db);
         db.execSQL("CREATE TABLE IF NOT EXISTS movement_sync (cloud_id TEXT PRIMARY KEY)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS app_flags (flag TEXT PRIMARY KEY)");
     }
 
     @Override
@@ -289,6 +290,137 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             db.endTransaction();
         }
     }
+
+
+    public void uploadLegacyMovementsToFirestore() {
+        SQLiteDatabase db = getReadableDatabase();
+
+        Cursor c = db.rawQuery(
+                "SELECT m.id, p.sku, m.type, m.qty, m.username, m.created_at " +
+                "FROM movements m JOIN products p ON p.id=m.product_id",
+                null
+        );
+
+        FirebaseFirestore cloud = FirebaseFirestore.getInstance();
+
+        try {
+            while (c.moveToNext()) {
+                long localId = c.getLong(0);
+                String sku = c.getString(1);
+                String type = c.getString(2);
+                int qty = c.getInt(3);
+                String username = c.getString(4);
+                String createdAt = c.getString(5);
+
+                String safeSku = sku == null ? "" : sku.trim();
+                if (safeSku.isEmpty()) continue;
+
+                String cloudId =
+                        "legacy_" +
+                        safeSku.replace("/", "_") +
+                        "_" +
+                        localId;
+
+                Cursor known = getReadableDatabase().rawQuery(
+                        "SELECT cloud_id FROM movement_sync WHERE cloud_id=? LIMIT 1",
+                        new String[]{cloudId}
+                );
+
+                boolean alreadyUploaded = known.moveToFirst();
+                known.close();
+
+                if (alreadyUploaded) {
+                    continue;
+                }
+
+                Map<String, Object> movement = new HashMap<>();
+                movement.put("sku", safeSku);
+                movement.put("type", type == null ? "" : type);
+                movement.put("qty", qty);
+                movement.put("username", username == null ? "" : username);
+                movement.put("created_at", createdAt == null ? "" : createdAt);
+                movement.put("legacy_local_id", localId);
+                movement.put("migrated_at_ms", System.currentTimeMillis());
+
+                cloud.collection("movements")
+                        .document(cloudId)
+                        .set(movement)
+                        .addOnSuccessListener(unused -> {
+                            ContentValues mark = new ContentValues();
+                            mark.put("cloud_id", cloudId);
+
+                            getWritableDatabase().insertWithOnConflict(
+                                    "movement_sync",
+                                    null,
+                                    mark,
+                                    SQLiteDatabase.CONFLICT_IGNORE
+                            );
+
+                            android.util.Log.d(
+                                    "MOVEMENT_MIGRATION",
+                                    "Uploaded legacy movement: " + cloudId
+                            );
+                        })
+                        .addOnFailureListener(e ->
+                                android.util.Log.e(
+                                        "MOVEMENT_MIGRATION",
+                                        "Legacy movement upload failed: " + cloudId,
+                                        e
+                                ));
+            }
+        } finally {
+            c.close();
+        }
+    }
+
+
+
+    public void cleanupDuplicateMovementsOnce() {
+        SQLiteDatabase db = getWritableDatabase();
+
+        Cursor flag = db.rawQuery(
+                "SELECT flag FROM app_flags WHERE flag='movement_dedupe_v1' LIMIT 1",
+                null
+        );
+
+        boolean alreadyDone = flag.moveToFirst();
+        flag.close();
+
+        if (alreadyDone) return;
+
+        db.beginTransaction();
+
+        try {
+            db.execSQL(
+                    "DELETE FROM movements " +
+                    "WHERE id NOT IN (" +
+                    "SELECT MIN(id) FROM movements " +
+                    "GROUP BY product_id, type, qty, IFNULL(username,''), created_at" +
+                    ")"
+            );
+
+            ContentValues v = new ContentValues();
+            v.put("flag", "movement_dedupe_v1");
+
+            db.insertWithOnConflict(
+                    "app_flags",
+                    null,
+                    v,
+                    SQLiteDatabase.CONFLICT_IGNORE
+            );
+
+            db.setTransactionSuccessful();
+
+            android.util.Log.d(
+                    "MOVEMENT_CLEANUP",
+                    "Duplicate movement cleanup completed"
+            );
+
+        } finally {
+            db.endTransaction();
+        }
+    }
+
 
     public Cursor getMovements() {
         return getReadableDatabase().rawQuery(

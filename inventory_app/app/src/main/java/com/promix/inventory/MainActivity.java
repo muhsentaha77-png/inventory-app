@@ -47,8 +47,10 @@ public class MainActivity extends Activity {
 
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         db = new DatabaseHelper(this);
+        db.cleanupDuplicateMovementsOnce();
         syncProductsFromFirestore();
         syncMovementsFromFirestore();
+        db.uploadLegacyMovementsToFirestore();
         showLogin();
     }
 
