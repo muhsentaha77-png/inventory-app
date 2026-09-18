@@ -1,0 +1,12 @@
+com.promix.inventory.app-firebase-common-21.0.0-0 /home/codespace/.gradle/caches/9.7.0/transforms/2094988fb5b8724572dcb0489c905116/transformed/firebase-common-21.0.0/res
+com.promix.inventory.app-play-services-base-18.0.1-1 /home/codespace/.gradle/caches/9.7.0/transforms/80528a5187d9b4b095ef294c51b39e46/transformed/play-services-base-18.0.1/res
+com.promix.inventory.app-core-1.2.0-2 /home/codespace/.gradle/caches/9.7.0/transforms/b0210a5fdb4b4b98ced829882a48e1f7/transformed/core-1.2.0/res
+com.promix.inventory.app-play-services-basement-18.3.0-3 /home/codespace/.gradle/caches/9.7.0/transforms/d1d5b5d0fd5d839dccb1a67fe2086acf/transformed/play-services-basement-18.3.0/res
+com.promix.inventory.app-pngs-4 /workspaces/inventory-app/inventory_app/app/build/generated/res/pngs/debug
+com.promix.inventory.app-res-5 /workspaces/inventory-app/inventory_app/app/build/generated/res/processDebugGoogleServices
+com.promix.inventory.app-resValues-6 /workspaces/inventory-app/inventory_app/app/build/generated/res/resValues/debug
+com.promix.inventory.app-packageDebugResources-7 /workspaces/inventory-app/inventory_app/app/build/intermediates/incremental/debug/packageDebugResources/merged.dir
+com.promix.inventory.app-packageDebugResources-8 /workspaces/inventory-app/inventory_app/app/build/intermediates/incremental/debug/packageDebugResources/stripped.dir
+com.promix.inventory.app-debug-9 /workspaces/inventory-app/inventory_app/app/build/intermediates/merged_res/debug/mergeDebugResources
+com.promix.inventory.app-debug-10 /workspaces/inventory-app/inventory_app/app/src/debug/res
+com.promix.inventory.app-main-11 /workspaces/inventory-app/inventory_app/app/src/main/res

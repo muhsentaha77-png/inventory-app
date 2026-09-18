@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "950601505323",
+    "project_id": "inventory-system-24530",
+    "storage_bucket": "inventory-system-24530.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:950601505323:android:2eb386d301c907f291686e",
+        "android_client_info": {
+          "package_name": "com.promix.inventory"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhFb_7l1lr58-W41JCx41UAoShX2rQtvk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

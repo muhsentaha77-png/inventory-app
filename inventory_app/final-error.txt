@@ -1,0 +1,55 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/9.7.0/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+The message received from the daemon indicates that the daemon has disappeared.
+Build request sent: Build{id=09d358c7-31e7-48e9-b93b-b5175fcf285c, currentDir=/workspaces/inventory-app/inventory_app}
+Attempting to read last messages from the daemon log...
+Daemon pid: 162490
+  log file: /home/codespace/.gradle/daemon/9.7.0/daemon-162490.out.log
+----- Last 20 lines from daemon log file - daemon-162490.out.log -----
+2026-09-13T11:47:44.245+0000 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] Command execution: started DaemonCommandExecution[command = Build{id=09d358c7-31e7-48e9-b93b-b5175fcf285c, currentDir=/workspaces/inventory-app/inventory_app}, connection = DefaultDaemonConnection: socket connection from /127.0.0.1:42369 to /127.0.0.1:49918] after 0.003033333333333333 minutes of idle
+2026-09-13T11:47:44.247+0000 [INFO] [org.gradle.launcher.daemon.server.DaemonRegistryUpdater] Marking the daemon as busy, address: [ec25e237-a34a-4788-b837-1bd8da9334fc port:42369, addresses:[localhost/127.0.0.1]]
+2026-09-13T11:47:44.248+0000 [DEBUG] [org.gradle.launcher.daemon.registry.PersistentDaemonRegistry] Marking busy by address: [ec25e237-a34a-4788-b837-1bd8da9334fc port:42369, addresses:[localhost/127.0.0.1]]
+2026-09-13T11:47:44.248+0000 [DEBUG] [org.gradle.cache.internal.DefaultFileLockManager] Waiting to acquire exclusive lock on daemon addresses registry.
+2026-09-13T11:47:44.251+0000 [DEBUG] [org.gradle.cache.internal.DefaultFileLockManager] Lock acquired on daemon addresses registry.
+2026-09-13T11:47:44.254+0000 [DEBUG] [org.gradle.cache.internal.DefaultFileLockManager] Releasing lock on daemon addresses registry.
+2026-09-13T11:47:44.254+0000 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] resetting idle timer
+2026-09-13T11:47:44.255+0000 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] daemon is running. Sleeping until state changes.
+2026-09-13T11:47:44.258+0000 [INFO] [org.gradle.launcher.daemon.server.exec.StartBuildOrRespondWithBusy] Daemon is about to start building Build{id=09d358c7-31e7-48e9-b93b-b5175fcf285c, currentDir=/workspaces/inventory-app/inventory_app}. Dispatching build started information...
+2026-09-13T11:47:44.258+0000 [DEBUG] [org.gradle.launcher.daemon.server.SynchronizedDispatchConnection] thread 31: dispatching org.gradle.launcher.daemon.protocol.BuildStarted@290454
+2026-09-13T11:47:44.261+0000 [DEBUG] [org.gradle.launcher.daemon.server.exec.LogToClient] About to start relaying all logs to the client via the connection.
+2026-09-13T11:47:44.261+0000 [INFO] [org.gradle.launcher.daemon.server.exec.LogToClient] The client will now receive all logging from the daemon (pid: 162490). The daemon log file: /home/codespace/.gradle/daemon/9.7.0/daemon-162490.out.log
+2026-09-13T11:47:44.266+0000 [DEBUG] [org.gradle.launcher.daemon.server.exec.ApplyClientEnvironmentVariables] Configuring env variables: [PATH, DOTNET_USE_POLLING_FILE_WATCHER, CODESPACES, CODESPACE_VSCODE_FOLDER, PROMPT_DIRTRIM, VSCODE_GIT_IPC_HANDLE, VSCODE_PYTHON_AUTOACTIVATE_GUARD, PIPX_HOME, HUGO_DIR, MAVEN_HOME, GITHUB_API_URL, MAVEN_ROOT, ORYX_PREFER_USER_INSTALLED_SDKS, COLORTERM, DOCKER_BUILDKIT, SDKMAN_DIR, VSCODE_GIT_ASKPASS_NODE, TERM_PROGRAM_VERSION, PWD, GIT_ASKPASS, CONDA_SCRIPT, SDKMAN_BROKER_API, HUGO_ROOT, NVM_CD_FLAGS, SHELL, LESSOPEN, SDKMAN_CANDIDATES_API, GITHUB_TOKEN, GITHUB_GRAPHQL_URL, DEBIAN_FLAVOR, GOPATH, OLDPWD, GITHUB_CODESPACE_TOKEN, ContainerVersion, PHP_PATH, RAILS_DEVELOPMENT_HOSTS, GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN, DOTNET_ROOT, NVM_SYMLINK_CURRENT, PYTHON_ROOT, DEBUGINFOD_URLS, GITHUB_USER, LS_COLORS, SHLVL, PIPX_BIN_DIR, ORYX_ENV_TYPE, DOTNET_RUNNING_IN_CONTAINER, LESSCLOSE, BROWSER, JAVA_ROOT, GITHUB_SERVER_URL, CLOUDENV_ENVIRONMENT_ID, JAVA_HOME, GIT_EDITOR, ORYX_SDK_STORAGE_BASE_URL, TERM, FEATURE_SPARK_POST_COMMIT_CREATE_ITERATION, LANG, GRADLE_HOME, VSCODE_GIT_ASKPASS_MAIN, INTERNAL_VSCS_TARGET_URL, NVM_INC, VSCODE_IPC_HOOK_CLI, GITHUB_REPOSITORY, CONDA_DIR, VSCODE_GIT_ASKPASS_EXTRA_ARGS, SDKMAN_CANDIDATES_DIR, _, NUGET_XMLDOC_MODE, RUBY_HOME, NODE_ROOT, NVM_DIR, ENABLE_DYNAMIC_INSTALL, TERM_PROGRAM, SHELL_LOGGED_IN, PYTHON_PATH, PYTHONIOENCODING, RBENV_ROOT, DOTNET_SKIP_FIRST_TIME_EXPERIENCE, PHP_ROOT, SDKMAN_PLATFORM, RUBY_ROOT, USER, GOROOT, ORYX_DIR, JUPYTERLAB_PATH, HOSTNAME, NVM_BIN, CODESPACE_NAME, NPM_GLOBAL, HOME, DYNAMIC_INSTALL_ROOT_DIR]
+2026-09-13T11:47:44.276+0000 [DEBUG] [org.gradle.launcher.daemon.server.exec.RequestStopIfSingleUsedDaemon] Requesting daemon stop after processing Build{id=09d358c7-31e7-48e9-b93b-b5175fcf285c, currentDir=/workspaces/inventory-app/inventory_app}
+2026-09-13T11:47:44.277+0000 [LIFECYCLE] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] Daemon will be stopped at the end of the build 
+2026-09-13T11:47:44.277+0000 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] Stop as soon as idle requested. The daemon is busy
+2026-09-13T11:47:44.278+0000 [DEBUG] [org.gradle.launcher.daemon.server.DaemonStateCoordinator] daemon stop has been requested. Sleeping until state changes.
+2026-09-13T11:47:44.283+0000 [DEBUG] [org.gradle.launcher.daemon.server.exec.ExecuteBuild] The daemon has started executing the build.
+2026-09-13T11:47:44.284+0000 [DEBUG] [org.gradle.launcher.daemon.server.exec.ExecuteBuild] Executing build with daemon context: DefaultDaemonContext[uid=e19d41bc-11e5-4da0-a374-f654dccc6e7d,javaHome=/usr/local/sdkman/candidates/java/25.0.4+1-ms,javaVersion=25,javaVendor=Microsoft,daemonRegistryDir=/home/codespace/.gradle/daemon,pid=162490,idleTimeout=120000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-XX:MaxMetaspaceSize=384m,-Xmx1024m,-Dfile.encoding=UTF-8,-Duser.country,-Duser.language=en,-Duser.variant]
+Daemon vm is shutting down... The daemon has exited normally or was terminated in response to a user interrupt.----- End of the daemon log -----
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Gradle build daemon disappeared unexpectedly (it may have been killed or may have crashed)
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+> Get more help at https://help.gradle.org.
+> Task :app:processDebugMainManifest
