@@ -428,12 +428,72 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     }
 
     public long addUser(String name, String username, String password, String role) {
+        String safeUsername = username == null ? "" : username.trim();
+        if (safeUsername.isEmpty()) return -1;
+
         ContentValues v = new ContentValues();
         v.put("name", name);
-        v.put("username", username);
+        v.put("username", safeUsername);
         v.put("password", password);
         v.put("role", role);
-        return getWritableDatabase().insert("users", null, v);
+
+        long id = getWritableDatabase().insert("users", null, v);
+
+        if (id > 0) {
+            Map<String, Object> user = new HashMap<>();
+            user.put("name", name == null ? "" : name);
+            user.put("username", safeUsername);
+            user.put("password", password == null ? "" : password);
+            user.put("role", role == null ? "موظف" : role);
+            user.put("updated_at", System.currentTimeMillis());
+
+            FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(safeUsername)
+                    .set(user);
+        }
+
+        return id;
+    }
+
+    public long upsertUserFromCloud(
+            String name,
+            String username,
+            String password,
+            String role
+    ) {
+        String safeUsername = username == null ? "" : username.trim();
+        if (safeUsername.isEmpty()) return -1;
+
+        SQLiteDatabase db = getWritableDatabase();
+
+        ContentValues v = new ContentValues();
+        v.put("name", name == null ? "" : name);
+        v.put("username", safeUsername);
+        v.put("password", password == null ? "" : password);
+        v.put("role", role == null ? "موظف" : role);
+
+        Cursor c = db.rawQuery(
+                "SELECT id FROM users WHERE username=? LIMIT 1",
+                new String[]{safeUsername}
+        );
+
+        try {
+            if (c.moveToFirst()) {
+                long id = c.getLong(0);
+                db.update(
+                        "users",
+                        v,
+                        "id=?",
+                        new String[]{String.valueOf(id)}
+                );
+                return id;
+            }
+        } finally {
+            c.close();
+        }
+
+        return db.insert("users", null, v);
     }
 
     public Cursor getUsers() {

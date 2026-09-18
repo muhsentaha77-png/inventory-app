@@ -50,6 +50,7 @@ public class MainActivity extends Activity {
         db.cleanupDuplicateMovementsOnce();
         syncProductsFromFirestore();
         syncMovementsFromFirestore();
+        syncUsersFromFirestore();
         db.uploadLegacyMovementsToFirestore();
         showLogin();
     }
@@ -299,6 +300,41 @@ public class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() { showDashboard(); }
+
+    private void syncUsersFromFirestore() {
+        firestore.collection("users")
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        android.util.Log.e(
+                                "USER_SYNC",
+                                "User sync failed",
+                                error
+                        );
+                        return;
+                    }
+
+                    if (querySnapshot == null) return;
+
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        String name = doc.getString("name");
+                        String username = doc.getString("username");
+                        String password = doc.getString("password");
+                        String role = doc.getString("role");
+
+                        db.upsertUserFromCloud(
+                                name == null ? "" : name,
+                                username == null ? "" : username,
+                                password == null ? "" : password,
+                                role == null ? "موظف" : role
+                        );
+                    }
+
+                    android.util.Log.d(
+                            "USER_SYNC",
+                            "Users synchronized: " + querySnapshot.size()
+                    );
+                });
+    }
 
     private void syncMovementsFromFirestore() {
         firestore.collection("movements")
