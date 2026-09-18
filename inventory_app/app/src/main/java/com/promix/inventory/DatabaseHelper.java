@@ -82,7 +82,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
             product.put("quantity", qty);
             product.put("min_quantity", minQty);
             product.put("notes", notes);
-            FirebaseFirestore.getInstance().collection("products").document(String.valueOf(id)).set(product);
+            FirebaseFirestore.getInstance().collection("products").document(sku).set(product);
         }
         return id;
     }
@@ -135,28 +135,25 @@ public class DatabaseHelper extends SQLiteOpenHelper {
                 String sku = skuCursor.getString(0);
                 skuCursor.close();
 
-        FirebaseFirestore.getInstance()
-                .collection("products")
-                .whereEqualTo("sku", sku)
-                .limit(1)
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
-                    android.util.Log.d("FIREBASE_SYNC", "SKU=" + sku + " results=" + querySnapshot.size());
-
-                    if (!querySnapshot.isEmpty()) {
-                        querySnapshot.getDocuments().get(0)
-                                .getReference()
-                                .update("quantity", next)
-                                .addOnSuccessListener(v ->
-                                        android.util.Log.d("FIREBASE_SYNC", "UPDATE OK sku=" + sku + " quantity=" + next))
-                                .addOnFailureListener(e ->
-                                        android.util.Log.e("FIREBASE_SYNC", "UPDATE FAILED sku=" + sku, e));
-                    } else {
-                        android.util.Log.e("FIREBASE_SYNC", "SKU NOT FOUND: " + sku);
-                    }
-                })
-                .addOnFailureListener(e ->
-                        android.util.Log.e("FIREBASE_SYNC", "QUERY FAILED sku=" + sku, e));
+                FirebaseFirestore.getInstance()
+                        .collection("products")
+                        .whereEqualTo("sku", sku)
+                        .get()
+                        .addOnSuccessListener(querySnapshot -> {
+                            if (!querySnapshot.isEmpty()) {
+                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                                    doc.getReference()
+                                            .update("quantity", next, "updated_at", System.currentTimeMillis());
+                                }
+                                android.util.Log.d("FIREBASE_SYNC",
+                                        "UPDATED sku=" + sku + " quantity=" + next +
+                                        " documents=" + querySnapshot.size());
+                            } else {
+                                android.util.Log.e("FIREBASE_SYNC", "SKU NOT FOUND: " + sku);
+                            }
+                        })
+                        .addOnFailureListener(e ->
+                                android.util.Log.e("FIREBASE_SYNC", "QUERY FAILED sku=" + sku, e));
             } else {
                 skuCursor.close();
             }
