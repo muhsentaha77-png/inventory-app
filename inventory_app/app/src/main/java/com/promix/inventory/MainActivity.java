@@ -265,8 +265,15 @@ public class MainActivity extends Activity {
 
                 db = new DatabaseHelper(this);
 
-                Toast.makeText(this, "تمت استعادة النسخة الاحتياطية بنجاح", Toast.LENGTH_LONG).show();
-                showDashboard();
+                db.uploadAllProductsToFirestore(() -> runOnUiThread(() -> {
+                    Toast.makeText(
+                            this,
+                            "تمت استعادة النسخة الاحتياطية ومزامنتها بنجاح",
+                            Toast.LENGTH_LONG
+                    ).show();
+
+                    showDashboard();
+                }));
 
             } catch (Exception e) {
                 db = new DatabaseHelper(this);

@@ -440,6 +440,68 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         return getReadableDatabase().rawQuery("SELECT id,name,username,role FROM users ORDER BY name", null);
     }
 
+
+    public void uploadAllProductsToFirestore(Runnable onComplete) {
+        SQLiteDatabase localDb = getReadableDatabase();
+
+        Cursor c = localDb.rawQuery(
+                "SELECT name, category, sku, quantity, min_quantity, notes FROM products",
+                null
+        );
+
+        FirebaseFirestore cloud = FirebaseFirestore.getInstance();
+
+        java.util.List<com.google.android.gms.tasks.Task<Void>> tasks =
+                new java.util.ArrayList<>();
+
+        try {
+            while (c.moveToNext()) {
+                String name = c.getString(0);
+                String category = c.getString(1);
+                String sku = c.getString(2);
+                int quantity = c.getInt(3);
+                int minQuantity = c.getInt(4);
+                String notes = c.getString(5);
+
+                String safeSku = sku == null ? "" : sku.trim();
+                if (safeSku.isEmpty()) continue;
+
+                Map<String, Object> product = new HashMap<>();
+                product.put("name", name == null ? "" : name);
+                product.put("category", category == null ? "" : category);
+                product.put("sku", safeSku);
+                product.put("quantity", quantity);
+                product.put("min_quantity", minQuantity);
+                product.put("notes", notes == null ? "" : notes);
+                product.put("updated_at", System.currentTimeMillis());
+
+                tasks.add(
+                        cloud.collection("products")
+                                .document(safeSku)
+                                .set(product)
+                );
+            }
+        } finally {
+            c.close();
+        }
+
+        if (tasks.isEmpty()) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+
+        com.google.android.gms.tasks.Tasks.whenAllComplete(tasks)
+                .addOnCompleteListener(task -> {
+                    android.util.Log.d(
+                            "RESTORE_SYNC",
+                            "Restored products uploaded to Firestore"
+                    );
+
+                    if (onComplete != null) onComplete.run();
+                });
+    }
+
+
     public int productCount() {
         Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM products", null);
         c.moveToFirst(); int n = c.getInt(0); c.close(); return n;
