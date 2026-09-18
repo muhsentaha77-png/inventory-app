@@ -26,11 +26,18 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL)");
         db.execSQL("CREATE TABLE products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, category TEXT, sku TEXT UNIQUE, quantity INTEGER NOT NULL DEFAULT 0, min_quantity INTEGER NOT NULL DEFAULT 5, notes TEXT)");
         db.execSQL("CREATE TABLE movements (id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER NOT NULL, type TEXT NOT NULL, qty INTEGER NOT NULL, username TEXT, created_at TEXT NOT NULL, FOREIGN KEY(product_id) REFERENCES products(id))");
+        db.execSQL("CREATE TABLE movement_sync (cloud_id TEXT PRIMARY KEY)");
 
         db.execSQL("INSERT INTO users(name,username,password,role) VALUES('المدير','admin','1234','admin')");
         db.execSQL("INSERT INTO products(name,category,sku,quantity,min_quantity,notes) VALUES('بطارية 200 أمبير','بطاريات','BAT-200',12,3,'مثال تجريبي')");
         db.execSQL("INSERT INTO products(name,category,sku,quantity,min_quantity,notes) VALUES('لوح طاقة 550 واط','ألواح طاقة','PV-550',20,5,'مثال تجريبي')");
         db.execSQL("INSERT INTO products(name,category,sku,quantity,min_quantity,notes) VALUES('انفرتر 5 كيلو','انفرترات','INV-5K',7,2,'مثال تجريبي')");
+    }
+
+    @Override
+    public void onOpen(SQLiteDatabase db) {
+        super.onOpen(db);
+        db.execSQL("CREATE TABLE IF NOT EXISTS movement_sync (cloud_id TEXT PRIMARY KEY)");
     }
 
     @Override
@@ -115,58 +122,169 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         SQLiteDatabase db = getWritableDatabase();
         db.beginTransaction();
         try {
-            Cursor c = db.rawQuery("SELECT quantity FROM products WHERE id=?", new String[]{String.valueOf(productId)});
-            if (!c.moveToFirst()) { c.close(); return false; }
+            Cursor c = db.rawQuery(
+                    "SELECT quantity, sku FROM products WHERE id=?",
+                    new String[]{String.valueOf(productId)}
+            );
+
+            if (!c.moveToFirst()) {
+                c.close();
+                return false;
+            }
+
             int current = c.getInt(0);
+            String sku = c.getString(1);
             c.close();
+
             int next = current + delta;
             if (next < 0) return false;
 
             ContentValues p = new ContentValues();
             p.put("quantity", next);
-            db.update("products", p, "id=?", new String[]{String.valueOf(productId)});
+            db.update("products", p, "id=?",
+                    new String[]{String.valueOf(productId)});
 
-            Cursor skuCursor = db.rawQuery(
-                    "SELECT sku FROM products WHERE id=?",
-                    new String[]{String.valueOf(productId)}
-            );
+            final String movementSku = sku == null ? "" : sku.trim();
 
-            if (skuCursor.moveToFirst()) {
-                String sku = skuCursor.getString(0);
-                skuCursor.close();
-
+            if (!movementSku.isEmpty()) {
                 FirebaseFirestore.getInstance()
                         .collection("products")
-                        .whereEqualTo("sku", sku)
+                        .whereEqualTo("sku", movementSku)
                         .get()
                         .addOnSuccessListener(querySnapshot -> {
-                            if (!querySnapshot.isEmpty()) {
-                                for (com.google.firebase.firestore.DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                                    doc.getReference()
-                                            .update("quantity", next, "updated_at", System.currentTimeMillis());
-                                }
-                                android.util.Log.d("FIREBASE_SYNC",
-                                        "UPDATED sku=" + sku + " quantity=" + next +
-                                        " documents=" + querySnapshot.size());
-                            } else {
-                                android.util.Log.e("FIREBASE_SYNC", "SKU NOT FOUND: " + sku);
+                            for (com.google.firebase.firestore.DocumentSnapshot doc :
+                                    querySnapshot.getDocuments()) {
+                                doc.getReference().update(
+                                        "quantity", next,
+                                        "updated_at", System.currentTimeMillis()
+                                );
                             }
                         })
                         .addOnFailureListener(e ->
-                                android.util.Log.e("FIREBASE_SYNC", "QUERY FAILED sku=" + sku, e));
-            } else {
-                skuCursor.close();
+                                android.util.Log.e(
+                                        "FIREBASE_SYNC",
+                                        "PRODUCT UPDATE FAILED sku=" + movementSku,
+                                        e
+                                ));
             }
+
+            String createdAt = new SimpleDateFormat(
+                    "yyyy-MM-dd HH:mm:ss",
+                    Locale.getDefault()
+            ).format(new Date());
 
             ContentValues m = new ContentValues();
             m.put("product_id", productId);
             m.put("type", type);
             m.put("qty", Math.abs(delta));
             m.put("username", username);
-            m.put("created_at", new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()).format(new Date()));
-            db.insert("movements", null, m);
+            m.put("created_at", createdAt);
+
+            long movementId = db.insert("movements", null, m);
+            if (movementId == -1) return false;
+
+            String cloudId = java.util.UUID.randomUUID().toString();
+
+            ContentValues mark = new ContentValues();
+            mark.put("cloud_id", cloudId);
+            db.insertWithOnConflict(
+                    "movement_sync",
+                    null,
+                    mark,
+                    SQLiteDatabase.CONFLICT_IGNORE
+            );
+
+            Map<String, Object> movement = new HashMap<>();
+            movement.put("sku", movementSku);
+            movement.put("type", type);
+            movement.put("qty", Math.abs(delta));
+            movement.put("username", username);
+            movement.put("created_at", createdAt);
+            movement.put("created_at_ms", System.currentTimeMillis());
+
+            FirebaseFirestore.getInstance()
+                    .collection("movements")
+                    .document(cloudId)
+                    .set(movement)
+                    .addOnFailureListener(e ->
+                            android.util.Log.e(
+                                    "MOVEMENT_SYNC",
+                                    "UPLOAD FAILED " + cloudId,
+                                    e
+                            ));
+
             db.setTransactionSuccessful();
             return true;
+
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    public void upsertMovementFromCloud(
+            String cloudId,
+            String sku,
+            String type,
+            int qty,
+            String username,
+            String createdAt
+    ) {
+        if (cloudId == null || cloudId.trim().isEmpty()) return;
+
+        SQLiteDatabase db = getWritableDatabase();
+        db.beginTransaction();
+
+        try {
+            Cursor known = db.rawQuery(
+                    "SELECT cloud_id FROM movement_sync WHERE cloud_id=? LIMIT 1",
+                    new String[]{cloudId}
+            );
+
+            boolean exists = known.moveToFirst();
+            known.close();
+
+            if (exists) {
+                db.setTransactionSuccessful();
+                return;
+            }
+
+            Cursor p = db.rawQuery(
+                    "SELECT id FROM products WHERE sku=? LIMIT 1",
+                    new String[]{sku == null ? "" : sku}
+            );
+
+            if (!p.moveToFirst()) {
+                p.close();
+                db.setTransactionSuccessful();
+                return;
+            }
+
+            long productId = p.getLong(0);
+            p.close();
+
+            ContentValues m = new ContentValues();
+            m.put("product_id", productId);
+            m.put("type", type == null ? "" : type);
+            m.put("qty", qty);
+            m.put("username", username == null ? "" : username);
+            m.put("created_at", createdAt == null ? "" : createdAt);
+
+            long inserted = db.insert("movements", null, m);
+
+            if (inserted != -1) {
+                ContentValues mark = new ContentValues();
+                mark.put("cloud_id", cloudId);
+
+                db.insertWithOnConflict(
+                        "movement_sync",
+                        null,
+                        mark,
+                        SQLiteDatabase.CONFLICT_IGNORE
+                );
+            }
+
+            db.setTransactionSuccessful();
+
         } finally {
             db.endTransaction();
         }

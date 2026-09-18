@@ -48,6 +48,7 @@ public class MainActivity extends Activity {
         getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
         db = new DatabaseHelper(this);
         syncProductsFromFirestore();
+        syncMovementsFromFirestore();
         showLogin();
     }
 
@@ -289,6 +290,39 @@ public class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() { showDashboard(); }
+
+    private void syncMovementsFromFirestore() {
+        firestore.collection("movements")
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        android.util.Log.e(
+                                "MOVEMENT_SYNC",
+                                "Realtime movement sync failed",
+                                error
+                        );
+                        return;
+                    }
+
+                    if (querySnapshot == null) return;
+
+                    for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                        String sku = doc.getString("sku");
+                        String type = doc.getString("type");
+                        String username = doc.getString("username");
+                        String createdAt = doc.getString("created_at");
+                        Long qty = doc.getLong("qty");
+
+                        db.upsertMovementFromCloud(
+                                doc.getId(),
+                                sku == null ? "" : sku,
+                                type == null ? "" : type,
+                                qty == null ? 0 : qty.intValue(),
+                                username == null ? "" : username,
+                                createdAt == null ? "" : createdAt
+                        );
+                    }
+                });
+    }
 
     private void syncProductsFromFirestore() {
         firestore.collection("products")
