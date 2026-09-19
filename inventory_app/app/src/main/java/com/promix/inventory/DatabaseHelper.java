@@ -37,8 +37,20 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onOpen(SQLiteDatabase db) {
         super.onOpen(db);
+
         db.execSQL("CREATE TABLE IF NOT EXISTS movement_sync (cloud_id TEXT PRIMARY KEY)");
         db.execSQL("CREATE TABLE IF NOT EXISTS app_flags (flag TEXT PRIMARY KEY)");
+
+        // حذف التكرارات أولاً باستخدام username بعد التنظيف المنطقي
+        db.execSQL(
+                "DELETE FROM users WHERE id NOT IN (" +
+                "SELECT MIN(id) FROM users " +
+                "GROUP BY LOWER(TRIM(username))" +
+                ")"
+        );
+
+        // بعد إزالة التكرارات يصبح تنظيف المسافات آمناً
+        db.execSQL("UPDATE users SET username=TRIM(username)");
     }
 
     @Override
@@ -431,20 +443,32 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         String safeUsername = username == null ? "" : username.trim();
         if (safeUsername.isEmpty()) return -1;
 
-        ContentValues v = new ContentValues();
-        v.put("name", name);
-        v.put("username", safeUsername);
-        v.put("password", password);
-        v.put("role", role);
+        SQLiteDatabase db = getWritableDatabase();
 
-        long id = getWritableDatabase().insert("users", null, v);
+        Cursor existing = db.rawQuery(
+                "SELECT id FROM users WHERE LOWER(TRIM(username))=LOWER(?) LIMIT 1",
+                new String[]{safeUsername}
+        );
+
+        boolean exists = existing.moveToFirst();
+        existing.close();
+
+        if (exists) return -1;
+
+        ContentValues v = new ContentValues();
+        v.put("name", name == null ? "" : name.trim());
+        v.put("username", safeUsername);
+        v.put("password", password == null ? "" : password);
+        v.put("role", role == null || role.trim().isEmpty() ? "موظف" : role.trim());
+
+        long id = db.insert("users", null, v);
 
         if (id > 0) {
             Map<String, Object> user = new HashMap<>();
-            user.put("name", name == null ? "" : name);
+            user.put("name", name == null ? "" : name.trim());
             user.put("username", safeUsername);
             user.put("password", password == null ? "" : password);
-            user.put("role", role == null ? "موظف" : role);
+            user.put("role", role == null || role.trim().isEmpty() ? "موظف" : role.trim());
             user.put("updated_at", System.currentTimeMillis());
 
             FirebaseFirestore.getInstance()
@@ -474,7 +498,7 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         v.put("role", role == null ? "موظف" : role);
 
         Cursor c = db.rawQuery(
-                "SELECT id FROM users WHERE username=? LIMIT 1",
+                "SELECT id FROM users WHERE LOWER(TRIM(username))=LOWER(?) LIMIT 1",
                 new String[]{safeUsername}
         );
 
@@ -499,6 +523,116 @@ public class DatabaseHelper extends SQLiteOpenHelper {
     public Cursor getUsers() {
         return getReadableDatabase().rawQuery("SELECT id,name,username,role FROM users ORDER BY name", null);
     }
+
+    public void deleteLocalUsersNotInCloud(java.util.Set<String> cloudUsernames) {
+        SQLiteDatabase db = getWritableDatabase();
+
+        Cursor c = db.rawQuery(
+                "SELECT id, username FROM users",
+                null
+        );
+
+        try {
+            while (c.moveToNext()) {
+                long id = c.getLong(0);
+                String username = c.getString(1);
+                String safeUsername = username == null ? "" : username.trim();
+
+                if (safeUsername.isEmpty()) continue;
+                if ("admin".equalsIgnoreCase(safeUsername)) continue;
+
+                if (!cloudUsernames.contains(safeUsername)) {
+                    db.delete(
+                            "users",
+                            "id=?",
+                            new String[]{String.valueOf(id)}
+                    );
+                }
+            }
+        } finally {
+            c.close();
+        }
+    }
+
+    public boolean deleteUser(long id) {
+        SQLiteDatabase db = getWritableDatabase();
+
+        Cursor c = db.rawQuery(
+                "SELECT username FROM users WHERE id=? LIMIT 1",
+                new String[]{String.valueOf(id)}
+        );
+
+        String username = null;
+        if (c.moveToFirst()) username = c.getString(0);
+        c.close();
+
+        if (username == null || username.trim().isEmpty()) return false;
+
+        String safeUsername = username.trim();
+        if ("admin".equalsIgnoreCase(safeUsername)) return false;
+
+        boolean deleted = db.delete(
+                "users", "id=?", new String[]{String.valueOf(id)}
+        ) > 0;
+
+        if (deleted) {
+            FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(safeUsername)
+                    .delete();
+        }
+
+        return deleted;
+    }
+
+
+    public void uploadAllUsersToFirestore() {
+        SQLiteDatabase localDb = getReadableDatabase();
+
+        Cursor c = localDb.rawQuery(
+                "SELECT name, username, password, role FROM users",
+                null
+        );
+
+        FirebaseFirestore cloud = FirebaseFirestore.getInstance();
+
+        try {
+            while (c.moveToNext()) {
+                String name = c.getString(0);
+                String username = c.getString(1);
+                String password = c.getString(2);
+                String role = c.getString(3);
+
+                String safeUsername = username == null ? "" : username.trim();
+                if (safeUsername.isEmpty()) continue;
+
+                Map<String, Object> user = new HashMap<>();
+                user.put("name", name == null ? "" : name);
+                user.put("username", safeUsername);
+                user.put("password", password == null ? "" : password);
+                user.put("role", role == null ? "موظف" : role);
+                user.put("updated_at", System.currentTimeMillis());
+
+                cloud.collection("users")
+                        .document(safeUsername)
+                        .set(user)
+                        .addOnSuccessListener(unused ->
+                                android.util.Log.d(
+                                        "USER_MIGRATION",
+                                        "Uploaded local user: " + safeUsername
+                                ))
+                        .addOnFailureListener(e ->
+                                android.util.Log.e(
+                                        "USER_MIGRATION",
+                                        "Failed local user upload: " + safeUsername,
+                                        e
+                                ));
+            }
+        } finally {
+            c.close();
+        }
+    }
+
 
 
     public void uploadAllProductsToFirestore(Runnable onComplete) {

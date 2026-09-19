@@ -51,6 +51,7 @@ public class MainActivity extends Activity {
         syncProductsFromFirestore();
         syncMovementsFromFirestore();
         syncUsersFromFirestore();
+        db.uploadAllUsersToFirestore();
         db.uploadLegacyMovementsToFirestore();
         showLogin();
     }
@@ -186,9 +187,66 @@ public class MainActivity extends Activity {
     }
 
     private void showUsers() {
-        if (!"admin".equalsIgnoreCase(currentRole)) { Toast.makeText(this, "هذه الصفحة للمدير فقط", Toast.LENGTH_SHORT).show(); return; }
-        base("الموظفون"); addBack(); Button add=button("+ إضافة موظف"); root.addView(add); add.setOnClickListener(v->userDialog());
-        Cursor c=db.getUsers(); while(c.moveToNext()){root.addView(text(c.getString(1)+" — "+c.getString(3)+" ("+c.getString(2)+")",17,true));} c.close();
+        if (!"admin".equalsIgnoreCase(currentRole)) {
+            Toast.makeText(this, "هذه الصفحة للمدير فقط", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        base("الموظفون");
+        addBack();
+
+        Button add = button("+ إضافة موظف");
+        root.addView(add);
+        add.setOnClickListener(v -> userDialog());
+
+        Cursor c = db.getUsers();
+
+        while (c.moveToNext()) {
+            long id = c.getLong(0);
+            String name = c.getString(1);
+            String username = c.getString(2);
+            String role = c.getString(3);
+
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.VERTICAL);
+            card.setPadding(18,14,18,14);
+            card.setBackgroundColor(Color.WHITE);
+
+            card.addView(text(name + " — " + role + " (" + username + ")",17,true));
+
+            if (!"admin".equalsIgnoreCase(username)) {
+                Button del = button("حذف الموظف");
+                card.addView(del);
+
+                del.setOnClickListener(v ->
+                        new AlertDialog.Builder(this)
+                                .setTitle("حذف الموظف")
+                                .setMessage("هل تريد حذف " + name + "؟")
+                                .setPositiveButton("حذف",(d,w)->{
+                                    boolean ok = db.deleteUser(id);
+                                    Toast.makeText(
+                                            this,
+                                            ok ? "تم حذف الموظف" : "تعذر حذف الموظف",
+                                            Toast.LENGTH_SHORT
+                                    ).show();
+                                    showUsers();
+                                })
+                                .setNegativeButton("إلغاء",null)
+                                .show()
+                );
+            }
+
+            LinearLayout.LayoutParams lp =
+                    new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                    );
+
+            lp.setMargins(0,8,0,8);
+            root.addView(card,lp);
+        }
+
+        c.close();
     }
 
     private void userDialog() {
@@ -315,19 +373,31 @@ public class MainActivity extends Activity {
 
                     if (querySnapshot == null) return;
 
+                    java.util.Set<String> cloudUsernames =
+                            new java.util.HashSet<>();
+
                     for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
                         String name = doc.getString("name");
                         String username = doc.getString("username");
                         String password = doc.getString("password");
                         String role = doc.getString("role");
 
+                        String safeUsername =
+                                username == null ? "" : username.trim();
+
+                        if (!safeUsername.isEmpty()) {
+                            cloudUsernames.add(safeUsername);
+                        }
+
                         db.upsertUserFromCloud(
                                 name == null ? "" : name,
-                                username == null ? "" : username,
+                                safeUsername,
                                 password == null ? "" : password,
                                 role == null ? "موظف" : role
                         );
                     }
+
+                    db.deleteLocalUsersNotInCloud(cloudUsernames);
 
                     android.util.Log.d(
                             "USER_SYNC",
